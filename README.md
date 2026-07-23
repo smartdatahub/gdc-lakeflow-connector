@@ -7,3 +7,5 @@ Dogfood: Databricks Add Data UI -> Custom connector -> this repository URL,
 source name `gdc`.
 
 Destined for contribution to databrickslabs/lakeflow-community-connectors.
+
+Setup runbook: [docs/pipeline-setup.md](docs/pipeline-setup.md)
