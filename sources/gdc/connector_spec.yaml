@@ -1,0 +1,23 @@
+# Geo Data Connector (GDC) — Lakeflow community connector spec
+# Connection parameters are provided when creating the Unity Catalog connection.
+
+display_name: Geo Data Connector
+connection:
+  parameters:
+    - name: pat
+      type: string
+      required: true
+      secret: true
+      description: >
+        GDC personal access token. Create a free account at
+        https://gdc.smartdatahub.io and generate a token under Settings.
+        The token authorizes access to your GDC subscriptions.
+
+    - name: base_url
+      type: string
+      required: false
+      description: >
+        GDC public API base URL. Defaults to
+        https://gdca.api.smartdatahub.io/v1 — override only for testing.
+
+external_options_allowlist: ""
