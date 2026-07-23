@@ -10,6 +10,7 @@ column (EPSG:4326, WKB) with ST_* functions and the precomputed h3_indices array
 with h3_* functions.
 """
 
+import hashlib
 import io
 import re
 import time
@@ -78,6 +79,7 @@ class GdcLakeflowConnect(LakeflowConnect):
         # schema derivation (source attributes) is the next iteration.
         return StructType(
             [
+                StructField("row_id", StringType()),
                 StructField("geom_wgs84", BinaryType()),
                 StructField("h3_indices", ArrayType(StringType())),
                 StructField("h3_resolution", IntegerType()),
@@ -87,7 +89,10 @@ class GdcLakeflowConnect(LakeflowConnect):
         )
 
     def read_table_metadata(self, table_name: str, table_options: Dict[str, str]) -> dict:
-        return {"primary_keys": [], "cursor_field": None, "ingestion_type": "snapshot"}
+        # row_id is a deterministic content hash: stable for unchanged rows across
+        # snapshots, so apply_changes_from_snapshot merges correctly without a
+        # source-guaranteed natural key.
+        return {"primary_keys": ["row_id"], "cursor_field": None, "ingestion_type": "snapshot"}
 
     def read_table(
         self, table_name: str, start_offset: dict, table_options: Dict[str, str]
@@ -117,17 +122,26 @@ class GdcLakeflowConnect(LakeflowConnect):
             import pyarrow.parquet as pq  # provided by the Databricks runtime
 
             for f in files:
-                data = self._session.get(f["url"], timeout=300)
+                # Bare requests.get — the presigned URL carries its own auth in the
+                # query string; sending our Bearer header too makes S3 reject with 400.
+                data = requests.get(f["url"], timeout=300)
                 data.raise_for_status()
                 table = pq.read_table(io.BytesIO(data.content))
                 core = {"geom_wgs84", "h3_indices", "h3_resolution", "h3_indices_coarse"}
                 for batch in table.to_pylist():
+                    attrs = str({k: v for k, v in batch.items() if k not in core})
+                    geom = batch.get("geom_wgs84")
+                    row_id = hashlib.sha256(
+                        (geom.hex() if isinstance(geom, (bytes, bytearray)) else str(geom)).encode()
+                        + attrs.encode()
+                    ).hexdigest()
                     yield {
-                        "geom_wgs84": batch.get("geom_wgs84"),
+                        "row_id": row_id,
+                        "geom_wgs84": geom,
                         "h3_indices": batch.get("h3_indices"),
                         "h3_resolution": batch.get("h3_resolution"),
                         "h3_indices_coarse": batch.get("h3_indices_coarse"),
-                        "attributes_json": str({k: v for k, v in batch.items() if k not in core}),
+                        "attributes_json": attrs,
                     }
 
         return rows(), None  # None offset: whole snapshot in one batch
