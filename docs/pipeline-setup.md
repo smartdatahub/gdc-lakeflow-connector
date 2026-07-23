@@ -1,8 +1,40 @@
 # Setting up a Lakeflow pipeline with the GDC connector (own-repo / dogfood path)
 
-Verified procedure (2026-07-23, first working run: 844 rows). Two steps below are
-workarounds for current custom-connector wizard defects — marked **[workaround]**;
-they should disappear as the framework matures.
+**v2 (2026-07-23 evening, probe2):** the wizard sparse-checks-out ONLY root files +
+`src/` and generates `src/ingest.py` there — with `src/` present in this repo (it
+is), setup completes with NO errors and the merged connector module arrives via the
+checkout. The v1 workarounds (manual folder setup, manual file materialization) are
+OBSOLETE. Current steps:
+
+1. **Wizard:** Data Ingestion → Custom connector → source name `gdc`, repository
+   `https://github.com/smartdatahub/gdc-lakeflow-connector` → select/create the
+   connection (Static Credential; options `pat`, `base_url`) → pipeline name,
+   event-log catalog/schema, root path → create. No errors expected.
+2. **Dependency:** pipeline Settings → Environment → add
+   `git+https://github.com/databrickslabs/lakeflow-community-connectors.git`
+   (until the framework library is on PyPI).
+3. **Edit the generated `src/ingest.py`:** replace the two `register` lines
+   (`from databricks.labs.community_connector import register` +
+   `register(spark, source_name)`) with:
+   ```python
+   from _generated_gdc_python_source import register_lakeflow_source
+   register_lakeflow_source(spark)
+   ```
+   (name-based `register` only resolves connectors inside the installed framework
+   package — not custom repos), and fill the `<YOUR_TABLE_NAME>` placeholders
+   (table names = enabled subscriptions' dataset names, lowercased,
+   non-alphanumerics → `_`).
+4. **Run.**
+
+The v1 procedure below is retained for reference (it documents the pre-`src/`
+failure mode and the manual recovery path).
+
+---
+
+## v1 (superseded) — verified procedure (2026-07-23, first working run: 844 rows)
+
+Two steps below are workarounds for what turned out to be the missing-`src/`
+failure mode — marked **[workaround]**; obsolete as of v2.
 
 ## Prerequisites
 
