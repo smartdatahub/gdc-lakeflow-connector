@@ -26,6 +26,12 @@ OBSOLETE. Current steps:
    non-alphanumerics → `_`).
 4. **Run.**
 
+> **Never manually import files into the pipeline folder** — it is a git folder and
+> git is its source of truth. All connector files ship via the checkout; if
+> something is missing, fix the repo (commit + push) and pull/recreate the
+> pipeline. Hand-patched files are untracked, break reproducibility, and conflict
+> with future pulls.
+
 The v1 procedure below is retained for reference (it documents the pre-`src/`
 failure mode and the manual recovery path).
 
