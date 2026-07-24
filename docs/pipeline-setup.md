@@ -13,7 +13,19 @@ OBSOLETE. Current steps:
 2. **Dependency:** pipeline Settings → Environment → add
    `git+https://github.com/databrickslabs/lakeflow-community-connectors.git`
    (until the framework library is on PyPI).
-3. **Edit the generated `src/ingest.py`:** replace the two `register` lines
+3. **Recreate `src/ingest.py` as a NOTEBOOK.** The wizard generates it as a
+   workspace FILE, but the pipeline requires a Python NOTEBOOK — an unedited run
+   fails at load with `UNSUPPORTED_LANGUAGE` ("Only SQL and Python notebooks are
+   supported"). This is a confirmed Databricks wizard defect affecting BOTH custom
+   and registered community connectors (a FILE cannot be converted in place — the
+   `# Databricks notebook source` marker does NOT flip type on the modern
+   workspace-files API; type is fixed at creation). Fix in the UI: rename the
+   generated file (e.g. `ingest.py.original`) and create a NEW **Notebook** named
+   `ingest.py` in the same `src/` folder, then paste the driver content into it.
+   (`_generated_gdc_python_source.py` stays a FILE — it is imported, not loaded as a
+   transformation; the pipeline targets `ingest.py` specifically, not a `src/*.py`
+   glob, so its FILE type is fine.)
+4. **Edit the notebook `src/ingest.py`:** replace the two `register` lines
    (`from databricks.labs.community_connector import register` +
    `register(spark, source_name)`) with:
    ```python
@@ -24,7 +36,8 @@ OBSOLETE. Current steps:
    package — not custom repos), and fill the `<YOUR_TABLE_NAME>` placeholders
    (table names = enabled subscriptions' dataset names, lowercased,
    non-alphanumerics → `_`).
-4. **Run.**
+5. **Run.** (Validated end-to-end from a clean clone 2026-07-24: `citypageweather`
+   dev dataset → 844 rows into a Delta table.)
 
 > **Never manually import files into the pipeline folder** — it is a git folder and
 > git is its source of truth. All connector files ship via the checkout; if
